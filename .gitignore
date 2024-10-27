@@ -1,0 +1,17 @@
+# Node.jsの依存関係
+node_modules/
+
+# ビルド出力
+dist/
+build/
+
+# 環境設定ファイル
+.env
+
+# OSによるファイル
+.DS_Store
+Thumbs.db
+
+# テストのカバレッジレポート
+coverage/
+

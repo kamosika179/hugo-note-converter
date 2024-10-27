@@ -34,6 +34,7 @@ module.exports = class HugoNoteConverter extends Plugin {
 
             console.log('Active note found:', activeFile.path);
 
+            // ask directory name for hugo blog
             const newDirName = await this.askForDirectoryName();
             if (!newDirName) {
                 new Notice('Directory name is required.');
@@ -41,14 +42,20 @@ module.exports = class HugoNoteConverter extends Plugin {
                 return;
             }
 
-            const sanitizedDirName = this.sanitizeFileName(newDirName);
+            // create directory
+            const sanitizedDirName = this.sanitizeDirName(newDirName);
             const downloadDir = path.join(os.homedir(), 'Downloads', sanitizedDirName);
             if (!fs.existsSync(downloadDir)) {
                 fs.mkdirSync(downloadDir, { recursive: true });
             }
 
+            // read file contet
             const fileContents = await this.app.vault.read(activeFile);
+
+            // create frontmatter text for hugo markdown file
             const addedFrontMatterContents = this.createFromtMatter(fileContents,activeFile.name.replace(/\.md$/, ""));
+
+            // replace content text for hugo
             const convertedContents = this.convertWikiLinksToMarkdown(addedFrontMatterContents);
 
             fs.writeFileSync(path.join(downloadDir, 'index.md'), convertedContents);
@@ -62,8 +69,8 @@ module.exports = class HugoNoteConverter extends Plugin {
         }
     }
 
-    sanitizeFileName(name) {
-        return name.replace(/[<>:"\/\\|?*]/g, '_');
+    sanitizeDirName(name) {
+        return name.replace(/[<>:"\/\\\s|?*]/g, '_');
     }
 
     async askForDirectoryName() {
@@ -122,7 +129,12 @@ module.exports = class HugoNoteConverter extends Plugin {
         const linkRegex = /\[\[([^\]]+)\]\]/g;
 
         // 画像の形式にマッチする部分を置換
-        let convertedContents = contents.replace(imageRegex, '![]($1)');
+        let convertedContents = contents.replace(imageRegex, (match, p1) => {
+            // p1（画像のURL部分）の空白をアンダースコアに置き換え
+            const sanitizedUrl = p1.replace(/\s+/g, '_');
+            // 置換した内容を返す
+            return `![](${sanitizedUrl})`;
+        });
         // wikilinkの形式にマッチする部分を置換
         convertedContents = convertedContents.replace(linkRegex, '$1');
 
@@ -137,7 +149,9 @@ module.exports = class HugoNoteConverter extends Plugin {
         for (const link of imageLinks) {
             const imageName = link.match(/!\[\[([^\]]+)\]\]/)[1];
             const imagePath = `${this.app.vault.adapter.basePath}/${this.settings.imageDirectory}/${imageName}`;
-            const newImagePath = path.join(dirPath, imageName);
+            // 画像ファイル名の空白部分を_に置き換える
+            const sanitizedImageName = imageName.replace(/[<>:"\/\\\s|?*]/g, '_');
+            const newImagePath = path.join(dirPath, sanitizedImageName);
             fs.copyFileSync(imagePath, newImagePath);
             console.log(`Copied ${imageName} to ${newImagePath}`);
         }
